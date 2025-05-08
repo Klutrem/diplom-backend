@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"main/internal/domain/metrics"
 	"os"
 	"path/filepath"
 
@@ -12,10 +13,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 type KubernetesClient struct {
-	clientset *kubernetes.Clientset
+	clientset     *kubernetes.Clientset
+	metricsClient *versioned.Clientset
 }
 
 var Module = fx.Module("kubernetes", fx.Provide(NewKubernetesClient))
@@ -39,19 +43,34 @@ func NewKubernetesClient() (*KubernetesClient, error) {
 		fmt.Println("Error creating clientset:", err)
 		return nil, err
 	}
+	metricsClient, err := versioned.NewForConfig(config)
+	if err != nil {
+		fmt.Println("Error creating metrics client:", err)
+		return nil, err
+	}
 
-	return &KubernetesClient{clientset: clientset}, nil
+	return &KubernetesClient{clientset: clientset, metricsClient: metricsClient}, nil
 }
 
-func (c *KubernetesClient) GetNodes() ([]string, error) {
-	nodes, err := c.clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+func (c *KubernetesClient) GetNodes() ([]metrics.NodeMetrics, error) {
+	nodeMetrics, err := c.getNodeMetrics()
 	if err != nil {
 		return nil, err
 	}
 
-	nodesList := make([]string, 0, len(nodes.Items))
-	for _, node := range nodes.Items {
-		nodesList = append(nodesList, node.Name)
+	nodes, err := c.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
 	}
-	return nodesList, nil
+
+	return NodeFromMetrics(nodeMetrics, nodes.Items), nil
+}
+
+func (c *KubernetesClient) getNodeMetrics() ([]v1beta1.NodeMetrics, error) {
+	nodeMetricsList, err := c.metricsClient.MetricsV1beta1().NodeMetricses().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Println("Error getting node metrics:", err)
+		return nil, err
+	}
+	return nodeMetricsList.Items, nil
 }
