@@ -21,22 +21,6 @@ type Env struct {
 	DBPass string `mapstructure:"DB_PASS"`
 	DBName string `mapstructure:"DB_NAME"`
 
-	Bucket      string `mapstructure:"BUCKET_NAME"`
-	S3Key       string `mapstructure:"AWS_ACCESS_KEY"`
-	S3Secret    string `mapstructure:"AWS_SECRET_KEY"`
-	S3Host      string `mapstructure:"AWS_HOST"`
-	S3PublicUrl string `mapstructure:"AWS_PUBLIC_URL"`
-	S3Region    string `mapstructure:"AWS_REGION"`
-
-	CasdoorUrl              string `mapstructure:"CASDOOR_URL"`
-	CasdoorClientId         string `mapstructure:"CASDOOR_CLIENT_ID"`
-	CasdoorClientSecret     string `mapstructure:"CASDOOR_CLIENT_SECRET"`
-	CasdoorCertRaw          string `mapstructure:"CASDOOR_CERT"`
-	CasdoorCert             string
-	CasdoorOrganizationName string `mapstructure:"CASDOOR_ORGANIZATION_NAME"`
-	CasdoorApplicationName  string `mapstructure:"CASDOOR_APPLICATION_NAME"`
-	DefaultServerId         string `mapstructure:"DEFAULT_SERVER_ID"`
-
 	RedisHost string `mapstructure:"REDIS_HOST"`
 	RedisPort string `mapstructure:"REDIS_PORT"`
 	RedisPass string `mapstructure:"REDIS_PASS"`
@@ -96,10 +80,6 @@ func NewEnv() Env {
 	}
 
 	privateKeyFormat := "-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----"
-	certFormat := "-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----"
-	if env.CasdoorCertRaw != "" {
-		env.CasdoorCert = fmt.Sprintf(certFormat, env.CasdoorCertRaw)
-	}
 	env.PublicKey = fmt.Sprintf(privateKeyFormat, env.AuthKey)
 
 	return env
