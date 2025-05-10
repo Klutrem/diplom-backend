@@ -3,6 +3,7 @@ package handler
 import (
 	"main/pkg"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,7 +12,7 @@ type RequestHandlerImpl struct {
 }
 
 func (rh *RequestHandlerImpl) Group(path string) gin.IRoutes {
-	return rh.gin.Group(path).Use(gin.Logger(), gin.ErrorLogger(), gin.Recovery())
+	return rh.gin.Group(path).Use(gin.Logger(), gin.ErrorLogger(), gin.Recovery(), cors.Default())
 }
 
 func (rh *RequestHandlerImpl) Run(addr string) error {

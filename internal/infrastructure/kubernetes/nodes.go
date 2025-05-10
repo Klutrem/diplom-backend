@@ -30,6 +30,8 @@ func NodeFromMetrics(nodeMetrics []v1beta1.NodeMetrics, nodes []corev1.Node) []m
 		memoryCapacity := node.Status.Capacity.Memory().Value() / 1024 / 1024
 		memoryUsagePercent := float64(memoryUsage) / float64(memoryCapacity) * 100
 
+		roles := getNodeRoles(node)
+
 		result = append(result, metrics.NodeMetrics{
 			NodeName:              nodeMetric.Name,
 			CPUUsage:              fmt.Sprintf("%dm", cpuUsage),
@@ -38,7 +40,29 @@ func NodeFromMetrics(nodeMetrics []v1beta1.NodeMetrics, nodes []corev1.Node) []m
 			MemoryUsage:           fmt.Sprintf("%dMi", memoryUsage),
 			MemoryCapacity:        fmt.Sprintf("%dMi", memoryCapacity),
 			MemoryUsagePercentage: fmt.Sprintf("%f", memoryUsagePercent),
+			Roles:                 roles,
+			Status:                getNodeStatus(node),
 		})
 	}
 	return result
+}
+
+func getNodeRoles(node *corev1.Node) []string {
+	roles := []string{}
+	if _, exists := node.Labels["node-role.kubernetes.io/control-plane"]; exists {
+		roles = append(roles, "control-plane")
+	}
+	if _, exists := node.Labels["node-role.kubernetes.io/worker"]; exists {
+		roles = append(roles, "worker")
+	}
+	return roles
+}
+
+func getNodeStatus(node *corev1.Node) string {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == "Ready" && condition.Status == "True" {
+			return "Ready"
+		}
+	}
+	return "NotReady"
 }
