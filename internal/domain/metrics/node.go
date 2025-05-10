@@ -11,9 +11,3 @@ type NodeMetrics struct {
 	Roles                 []string `json:"roles"`
 	Status                string   `json:"status"`
 }
-
-type PodMetrics struct {
-	PodName     string `json:"pod_name"`
-	CPUUsage    string `json:"cpu_usage"`
-	MemoryUsage string `json:"memory_usage"`
-}
