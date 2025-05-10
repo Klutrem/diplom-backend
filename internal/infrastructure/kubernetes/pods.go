@@ -33,15 +33,23 @@ func (c *KubernetesClient) GetPodMetrics(namespace string) ([]v1beta1.PodMetrics
 
 func podFromMetrics(podMetrics []v1beta1.PodMetrics, pods []corev1.Pod) []metrics.PodMetrics {
 	result := make([]metrics.PodMetrics, 0, len(podMetrics))
-	for _, podMetric := range podMetrics {
-		var pod *corev1.Pod
-		for _, p := range pods {
-			if p.Name == podMetric.Name {
-				pod = &p
+	for _, pod := range pods {
+		var podMetric *v1beta1.PodMetrics
+		for _, p := range podMetrics {
+			if p.Name == pod.Name {
+				podMetric = &p
 				break
 			}
 		}
-		if pod == nil {
+		if podMetric == nil {
+			result = append(result, metrics.PodMetrics{
+				PodName:      pod.Name,
+				Namespace:    pod.Namespace,
+				NodeName:     pod.Spec.NodeName,
+				Status:       string(pod.Status.Phase),
+				StartTime:    pod.Status.StartTime.Format(time.RFC3339),
+				RestartCount: pod.Status.ContainerStatuses[0].RestartCount,
+			})
 			continue
 		}
 
@@ -73,6 +81,7 @@ func podFromMetrics(podMetrics []v1beta1.PodMetrics, pods []corev1.Pod) []metric
 			MemoryUsagePercent: &memoryUsagePercent,
 			MemoryUsageLimit:   memoryCapacity,
 			MemoryUsageRequest: pod.Status.ContainerStatuses[0].AllocatedResources.Memory().Value() / 1024 / 1024,
+			RestartCount:       pod.Status.ContainerStatuses[0].RestartCount,
 		})
 	}
 	return result

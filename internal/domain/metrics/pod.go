@@ -14,4 +14,5 @@ type PodMetrics struct {
 	MemoryUsageRequest int64    `json:"memory_usage_request"`
 	Status             string   `json:"status"`
 	StartTime          string   `json:"start_time"`
+	RestartCount       int32    `json:"restart_count"`
 }
