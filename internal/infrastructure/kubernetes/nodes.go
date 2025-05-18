@@ -37,7 +37,7 @@ func (c *KubernetesClient) getNodeMetrics() ([]v1beta1.NodeMetrics, error) {
 
 	for _, node := range nodes.Items {
 		// Получаем метрики CPU
-		cpuQuery := fmt.Sprintf(`sum(rate(node_cpu_seconds_total{instance="%s", mode!="idle"}[5m])) * 1000`, node.Name)
+		cpuQuery := fmt.Sprintf(`sum(rate(node_cpu_seconds_total{node="%s", mode!="idle"}[5m])) * 1000`, node.Name)
 		cpuValue, err := c.prometheusClient.GetMetricValue(cpuQuery)
 		if err != nil {
 			c.logger.Errorf("failed to get CPU usage for node %s: %v", node.Name, err)
@@ -49,7 +49,7 @@ func (c *KubernetesClient) getNodeMetrics() ([]v1beta1.NodeMetrics, error) {
 		}
 
 		// Получаем метрики памяти
-		memoryQuery := fmt.Sprintf(`node_memory_MemTotal_bytes{instance="%s"} - node_memory_MemAvailable_bytes{instance="%s"}`, node.Name, node.Name)
+		memoryQuery := fmt.Sprintf(`node_memory_MemTotal_bytes{node="%s"} - node_memory_MemAvailable_bytes{node="%s"}`, node.Name, node.Name)
 		memoryValue, err := c.prometheusClient.GetMetricValue(memoryQuery)
 		if err != nil {
 			c.logger.Errorf("failed to get memory usage for node %s: %v", node.Name, err)
