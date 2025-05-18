@@ -4,6 +4,7 @@ import (
 	"main/internal/application/api"
 	"main/internal/config"
 	"main/internal/infrastructure/kubernetes"
+	"main/internal/infrastructure/prometheus"
 	"main/pkg"
 	"main/pkg/handler"
 
@@ -15,5 +16,6 @@ var CommonModules = fx.Options(
 	pkg.Module,
 	handler.Module,
 	kubernetes.Module,
+	prometheus.Module,
 	api.Module,
 )

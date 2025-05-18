@@ -2,71 +2,51 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"main/internal/domain/metrics"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
 func (c *KubernetesClient) GetPods(namespace string) ([]metrics.PodMetrics, error) {
-	podMetrics, err := c.GetPodMetrics(namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	pods, err := c.clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return podFromMetrics(podMetrics, pods.Items), nil
-}
 
-func (c *KubernetesClient) GetPodMetrics(namespace string) ([]v1beta1.PodMetrics, error) {
-	podMetricsList, err := c.metricsClient.MetricsV1beta1().PodMetricses(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return podMetricsList.Items, nil
-}
-
-func podFromMetrics(podMetrics []v1beta1.PodMetrics, pods []corev1.Pod) []metrics.PodMetrics {
-	result := make([]metrics.PodMetrics, 0, len(podMetrics))
-	for _, pod := range pods {
-		var podMetric *v1beta1.PodMetrics
-		for _, p := range podMetrics {
-			if p.Name == pod.Name {
-				podMetric = &p
-				break
-			}
+	result := make([]metrics.PodMetrics, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		cpuUsage, err := c.getPodCPUUsage(namespace, pod.Name)
+		if err != nil {
+			c.logger.Errorf("failed to get CPU usage for pod %s: %v", pod.Name, err)
+			continue
 		}
-		if podMetric == nil {
-			result = append(result, metrics.PodMetrics{
-				PodName:      pod.Name,
-				Namespace:    pod.Namespace,
-				NodeName:     pod.Spec.NodeName,
-				Status:       string(pod.Status.Phase),
-				StartTime:    pod.Status.StartTime.Format(time.RFC3339),
-				RestartCount: pod.Status.ContainerStatuses[0].RestartCount,
-			})
+		memoryUsage, err := c.getPodMemoryUsage(namespace, pod.Name)
+		if err != nil {
+			c.logger.Errorf("failed to get memory usage for pod %s: %v", pod.Name, err)
 			continue
 		}
 
-		var cpuUsagePercent float64
-		var memoryUsagePercent float64
+		// Получаем ресурсы из pod.Spec
+		cpuRequest := pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+		cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+		memoryRequest := pod.Spec.Containers[0].Resources.Requests.Memory().Value() / 1024 / 1024 // MiB
+		memoryLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024     // MiB
 
-		cpuUsage := podMetric.Containers[0].Usage.Cpu().MilliValue() // mCores
-		cpuCapacity := pod.Status.ContainerStatuses[0].AllocatedResources.Cpu().MilliValue()
-		if cpuCapacity > 0 {
-			cpuUsagePercent = float64(cpuUsage) / float64(cpuCapacity) * 100
+		var cpuUsagePercent *float64
+		if cpuLimit > 0 {
+			percent := float64(cpuUsage) / float64(cpuLimit) * 100
+			cpuUsagePercent = &percent
 		}
 
-		memoryUsage := podMetric.Containers[0].Usage.Memory().Value() / 1024 / 1024 // MiB
-		memoryCapacity := pod.Status.ContainerStatuses[0].AllocatedResources.Memory().Value() / 1024 / 1024
-		if memoryCapacity > 0 {
-			memoryUsagePercent = float64(memoryUsage) / float64(memoryCapacity) * 100
+		var memoryUsagePercent *float64
+		if memoryLimit > 0 {
+			percent := float64(memoryUsage) / float64(memoryLimit) * 100
+			memoryUsagePercent = &percent
 		}
+
 		result = append(result, metrics.PodMetrics{
 			PodName:            pod.Name,
 			Namespace:          pod.Namespace,
@@ -74,15 +54,39 @@ func podFromMetrics(podMetrics []v1beta1.PodMetrics, pods []corev1.Pod) []metric
 			Status:             string(pod.Status.Phase),
 			StartTime:          pod.Status.StartTime.Format(time.RFC3339),
 			CPUUsage:           cpuUsage,
-			CPUUsagePercent:    &cpuUsagePercent,
-			CPUUsageLimit:      cpuCapacity,
-			CPUUsageRequest:    pod.Status.ContainerStatuses[0].AllocatedResources.Cpu().MilliValue(),
+			CPUUsagePercent:    cpuUsagePercent,
+			CPUUsageLimit:      cpuLimit,
+			CPUUsageRequest:    cpuRequest,
 			MemoryUsage:        memoryUsage,
-			MemoryUsagePercent: &memoryUsagePercent,
-			MemoryUsageLimit:   memoryCapacity,
-			MemoryUsageRequest: pod.Status.ContainerStatuses[0].AllocatedResources.Memory().Value() / 1024 / 1024,
+			MemoryUsagePercent: memoryUsagePercent,
+			MemoryUsageLimit:   memoryLimit,
+			MemoryUsageRequest: memoryRequest,
 			RestartCount:       pod.Status.ContainerStatuses[0].RestartCount,
 		})
 	}
-	return result
+	return result, nil
+}
+
+func (c *KubernetesClient) getPodCPUUsage(namespace, podName string) (int64, error) {
+	query := fmt.Sprintf(`sum(rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s"}[5m])) * 1000`, namespace, podName)
+	value, err := c.prometheusClient.GetMetricValue(query)
+	if err != nil {
+		return 0, err
+	}
+	if vector, ok := value.(model.Vector); ok && len(vector) > 0 {
+		return int64(vector[0].Value), nil
+	}
+	return 0, fmt.Errorf("no CPU usage data for pod %s", podName)
+}
+
+func (c *KubernetesClient) getPodMemoryUsage(namespace, podName string) (int64, error) {
+	query := fmt.Sprintf(`container_memory_working_set_bytes{namespace="%s", pod="%s"}`, namespace, podName)
+	value, err := c.prometheusClient.GetMetricValue(query)
+	if err != nil {
+		return 0, err
+	}
+	if vector, ok := value.(model.Vector); ok && len(vector) > 0 {
+		return int64(vector[0].Value) / 1024 / 1024, nil // Переводим в MiB
+	}
+	return 0, fmt.Errorf("no memory usage data for pod %s", podName)
 }

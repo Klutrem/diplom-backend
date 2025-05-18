@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"main/internal/config"
 	"os"
 
@@ -129,7 +128,6 @@ func newLogger(env config.Env) Logger {
 	logOutput := os.Getenv("LOG_OUTPUT")
 
 	if env.AppEnv == "development" || env.AppEnv == "local" {
-		fmt.Println("encode level")
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 

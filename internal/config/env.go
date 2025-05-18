@@ -25,6 +25,8 @@ type Env struct {
 	RedisPort string `mapstructure:"REDIS_PORT"`
 	RedisPass string `mapstructure:"REDIS_PASS"`
 
+	PrometheusHost string `mapstructure:"PROMETHEUS_HOST"`
+
 	AuthKey   string `mapstructure:"AUTH_KEY"`
 	PublicKey string
 }
