@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"main/internal/domain/events"
 	"main/internal/infrastructure/prometheus"
 	"main/pkg"
 	"os"
@@ -21,7 +22,7 @@ type KubernetesClient struct {
 	prometheusClient prometheus.PrometheusClient
 }
 
-var Module = fx.Module("kubernetes", fx.Provide(NewKubernetesClient))
+var Module = fx.Module("kubernetes", fx.Provide(NewKubernetesClient), fx.Provide(func(kc KubernetesClient) events.EventsKubernetesClient { return kc }))
 
 func NewKubernetesClient(logger pkg.Logger, prometheusClient prometheus.PrometheusClient) (*KubernetesClient, error) {
 	var config *rest.Config
