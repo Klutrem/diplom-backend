@@ -23,7 +23,7 @@ func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController,
 		podGroup.GET("", podController.GetPods)
 	}
 
-	eventsGroup := handler.Group("/events")
+	eventsGroup := handler.Group("/api/events")
 	{
 		eventsGroup.GET("", eventController.ListEvents)
 	}

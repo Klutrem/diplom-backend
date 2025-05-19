@@ -22,7 +22,7 @@ type KubernetesClient struct {
 	prometheusClient prometheus.PrometheusClient
 }
 
-var Module = fx.Module("kubernetes", fx.Provide(NewKubernetesClient), fx.Provide(func(kc KubernetesClient) events.EventsKubernetesClient { return kc }))
+var Module = fx.Module("kubernetes", fx.Provide(NewKubernetesClient), fx.Provide(func(kc *KubernetesClient) events.EventsKubernetesClient { return kc }))
 
 func NewKubernetesClient(logger pkg.Logger, prometheusClient prometheus.PrometheusClient) (*KubernetesClient, error) {
 	var config *rest.Config

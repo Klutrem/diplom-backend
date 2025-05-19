@@ -9,21 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// EventController handles HTTP requests for events
 type EventController struct {
 	logger       pkg.Logger
-	eventService *events.EventService
+	eventService events.EventService
 }
 
-// NewEventController creates a new EventController
-func NewEventController(logger pkg.Logger, eventService *events.EventService) *EventController {
+func NewEventController(logger pkg.Logger, eventService events.EventService) *EventController {
 	return &EventController{
 		logger:       logger,
 		eventService: eventService,
 	}
 }
 
-// ListEvents handles GET /events
 func (c *EventController) ListEvents(ctx *gin.Context) {
 	namespace := ctx.Query("namespace")
 	limitStr := ctx.DefaultQuery("limit", "100")
@@ -35,7 +32,7 @@ func (c *EventController) ListEvents(ctx *gin.Context) {
 		return
 	}
 
-	events, err := c.eventService.GetEvents(ctx, namespace, limit)
+	foundEvents, err := c.eventService.GetEvents(namespace, limit)
 	if err != nil {
 		c.logger.Errorf("failed to list events: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list events"})
@@ -43,7 +40,7 @@ func (c *EventController) ListEvents(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"events": events,
-		"total":  len(events),
+		"events": foundEvents,
+		"total":  len(foundEvents),
 	})
 }
