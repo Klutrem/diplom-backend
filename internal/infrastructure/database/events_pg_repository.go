@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"main/internal/domain/events"
 	"main/pkg"
 )
@@ -37,29 +38,21 @@ func (repo EventPGRepo) SaveEvent(event events.Event) error {
 }
 
 func (repo EventPGRepo) GetEvents(namespace string, limit int) ([]events.Event, error) {
-	query := `
-		SELECT * FROM ` + repo.table + `
-	`
-	args := []interface{}{limit}
-	var conditions []string
-	if namespace != "" {
-		conditions = append(conditions, `namespace = $`+fmt.Sprint(len(args)+1))
-		args = append(args, namespace)
+	// Проверка limit
+	if limit <= 0 {
+		return nil, fmt.Errorf("limit must be positive, got %d", limit)
 	}
 
-	if len(conditions) > 0 {
-		query += ` WHERE ` + conditions[0]
-	}
+	query := `SELECT * FROM ` + repo.table + ` WHERE namespace = $1 ORDER BY last_timestamp DESC LIMIT $2`
 
-	query += `
-		ORDER BY last_timestamp DESC
-		LIMIT $1
-	`
-
+	// Выполнение запроса
 	events := make([]events.Event, 0)
-	err := repo.database.Select(&events, query, args...)
+	err := repo.database.Select(&events, query, namespace, limit)
 	if err != nil {
-		return nil, err
+		// Логирование запроса и аргументов для отладки
+		log.Printf("Failed query: %s, Args: [%s, %d]", query, namespace, limit)
+		return nil, fmt.Errorf("failed to query events: %w", err)
 	}
+
 	return events, nil
 }
