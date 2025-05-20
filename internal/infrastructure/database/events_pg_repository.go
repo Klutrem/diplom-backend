@@ -37,20 +37,30 @@ func (repo EventPGRepo) SaveEvent(event events.Event) error {
 	return nil
 }
 
-func (repo EventPGRepo) GetEvents(namespace string, limit int) ([]events.Event, error) {
+func (repo EventPGRepo) GetEvents(namespace, eventType string, limit int) ([]events.Event, error) {
 	// Проверка limit
 	if limit <= 0 {
 		return nil, fmt.Errorf("limit must be positive, got %d", limit)
 	}
 
-	query := `SELECT * FROM ` + repo.table + ` WHERE namespace = $1 ORDER BY last_timestamp DESC LIMIT $2`
+	// Формирование запроса
+	query := `SELECT * FROM ` + repo.table + ` WHERE namespace = $1`
+	args := []any{namespace}
+
+	// Добавление фильтра по ty,pe если указан
+	if eventType != "" {
+		query += ` AND type = $2`
+		args = append(args, eventType)
+	}
+
+	query += ` ORDER BY last_timestamp DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1)
+	args = append(args, limit)
 
 	// Выполнение запроса
 	events := make([]events.Event, 0)
-	err := repo.database.Select(&events, query, namespace, limit)
+	err := repo.database.Select(&events, query, args...)
 	if err != nil {
-		// Логирование запроса и аргументов для отладки
-		log.Printf("Failed query: %s, Args: [%s, %d]", query, namespace, limit)
+		log.Printf("Query: %s, Args: %v", query, args)
 		return nil, fmt.Errorf("failed to query events: %w", err)
 	}
 

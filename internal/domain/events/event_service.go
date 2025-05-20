@@ -9,7 +9,7 @@ import (
 
 type EventRepository interface {
 	SaveEvent(event Event) error
-	GetEvents(namespace string, limit int) ([]Event, error)
+	GetEvents(namespace string, eventType string, limit int) ([]Event, error)
 }
 
 type EventService struct {
@@ -52,6 +52,6 @@ func (s *EventService) StartWatching(ctx context.Context, namespace string) erro
 
 	return nil
 }
-func (s *EventService) GetEvents(namespace string, limit int) ([]Event, error) {
-	return s.repository.GetEvents(namespace, limit)
+func (s *EventService) GetEvents(namespace string, eventType string, limit int) ([]Event, error) {
+	return s.repository.GetEvents(namespace, eventType, limit)
 }

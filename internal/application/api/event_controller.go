@@ -22,7 +22,8 @@ func NewEventController(logger pkg.Logger, eventService events.EventService) *Ev
 }
 
 func (c *EventController) ListEvents(ctx *gin.Context) {
-	namespace := ctx.Query("namespace")
+	namespace := ctx.DefaultQuery("namespace", "default")
+	eventType := ctx.Query("type")
 	limitStr := ctx.DefaultQuery("limit", "100")
 
 	limit, err := strconv.Atoi(limitStr)
@@ -32,7 +33,7 @@ func (c *EventController) ListEvents(ctx *gin.Context) {
 		return
 	}
 
-	foundEvents, err := c.eventService.GetEvents(namespace, limit)
+	foundEvents, err := c.eventService.GetEvents(namespace, eventType, limit)
 	if err != nil {
 		c.logger.Errorf("failed to list events: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list events"})
