@@ -12,3 +12,8 @@ CREATE TABLE IF NOT EXISTS events (
     last_timestamp TIMESTAMP,
     count INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS watched_namespaces (
+    namespace VARCHAR(255) PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

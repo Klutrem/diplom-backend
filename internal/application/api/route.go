@@ -27,6 +27,13 @@ func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController,
 	{
 		eventsGroup.GET("", eventController.ListEvents)
 	}
+
+	watchedNamespacesGroup := handler.Group("/api/watched_namespaces")
+	{
+		watchedNamespacesGroup.GET("", eventController.GetWatchedNamespaces)
+		watchedNamespacesGroup.POST("", eventController.AddWatchedNamespace)
+		watchedNamespacesGroup.DELETE("/:namespace", eventController.RemoveWatchedNamespace)
+	}
 }
 
 var Module = fx.Module("api",

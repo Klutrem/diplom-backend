@@ -47,7 +47,7 @@ func (repo EventPGRepo) GetEvents(namespace, eventType string, limit int) ([]eve
 	query := `SELECT * FROM ` + repo.table + ` WHERE namespace = $1`
 	args := []any{namespace}
 
-	// Добавление фильтра по ty,pe если указан
+	// Добавление фильтра по type если указан
 	if eventType != "" {
 		query += ` AND type = $2`
 		args = append(args, eventType)
@@ -65,4 +65,45 @@ func (repo EventPGRepo) GetEvents(namespace, eventType string, limit int) ([]eve
 	}
 
 	return events, nil
+}
+
+type WatchedNamespacePGRepo struct {
+	database pkg.Database
+	table    string
+}
+
+func NewWatchedNamespacePGRepository(database pkg.Database) events.WatchedNamespaceRepository {
+	return WatchedNamespacePGRepo{
+		database: database,
+		table:    "watched_namespaces",
+	}
+}
+
+func (repo WatchedNamespacePGRepo) AddNamespace(namespace string) error {
+	query := `
+		INSERT INTO ` + repo.table + ` (namespace)
+		VALUES ($1)
+		ON CONFLICT (namespace) DO NOTHING
+	`
+	_, err := repo.database.Exec(query, namespace)
+	return err
+}
+
+func (repo WatchedNamespacePGRepo) RemoveNamespace(namespace string) error {
+	query := `
+		DELETE FROM ` + repo.table + `
+		WHERE namespace = $1
+	`
+	_, err := repo.database.Exec(query, namespace)
+	return err
+}
+
+func (repo WatchedNamespacePGRepo) GetAllNamespaces() ([]string, error) {
+	query := `
+		SELECT namespace FROM ` + repo.table + `
+		ORDER BY created_at DESC
+	`
+	namespaces := make([]string, 0)
+	err := repo.database.Select(&namespaces, query)
+	return namespaces, err
 }
