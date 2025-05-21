@@ -18,33 +18,64 @@ func (c *KubernetesClient) GetPods(namespace string) ([]metrics.PodMetrics, erro
 
 	result := make([]metrics.PodMetrics, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		cpuUsage, err := c.getPodCPUUsage(namespace, pod.Name)
+		// Initialize with zero values
+		cpuUsage := int64(0)
+		memoryUsage := int64(0)
+		var cpuUsagePercent *float64
+		var memoryUsagePercent *float64
+
+		// Try to get CPU usage, but continue if it fails
+		cpuUsage, err = c.getPodCPUUsage(namespace, pod.Name)
 		if err != nil {
 			c.logger.Errorf("failed to get CPU usage for pod %s: %v", pod.Name, err)
-			continue
 		}
-		memoryUsage, err := c.getPodMemoryUsage(namespace, pod.Name)
+
+		// Try to get memory usage, but continue if it fails
+		memoryUsage, err = c.getPodMemoryUsage(namespace, pod.Name)
 		if err != nil {
 			c.logger.Errorf("failed to get memory usage for pod %s: %v", pod.Name, err)
-			continue
 		}
 
-		// Получаем ресурсы из pod.Spec
-		cpuRequest := pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
-		cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
-		memoryRequest := pod.Spec.Containers[0].Resources.Requests.Memory().Value() / 1024 / 1024 // MiB
-		memoryLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024     // MiB
+		// Get resources from pod.Spec
+		cpuRequest := int64(0)
+		cpuLimit := int64(0)
+		memoryRequest := int64(0)
+		memoryLimit := int64(0)
 
-		var cpuUsagePercent *float64
+		if len(pod.Spec.Containers) > 0 {
+			if pod.Spec.Containers[0].Resources.Requests.Cpu() != nil {
+				cpuRequest = pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+			}
+			if pod.Spec.Containers[0].Resources.Limits.Cpu() != nil {
+				cpuLimit = pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+			}
+			if pod.Spec.Containers[0].Resources.Requests.Memory() != nil {
+				memoryRequest = pod.Spec.Containers[0].Resources.Requests.Memory().Value() / 1024 / 1024 // MiB
+			}
+			if pod.Spec.Containers[0].Resources.Limits.Memory() != nil {
+				memoryLimit = pod.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024 // MiB
+			}
+		}
+
+		// Calculate percentages if we have limits
 		if cpuLimit > 0 {
 			percent := float64(cpuUsage) / float64(cpuLimit) * 100
 			cpuUsagePercent = &percent
 		}
 
-		var memoryUsagePercent *float64
 		if memoryLimit > 0 {
 			percent := float64(memoryUsage) / float64(memoryLimit) * 100
 			memoryUsagePercent = &percent
+		}
+
+		restartCount := int32(0)
+		if len(pod.Status.ContainerStatuses) > 0 {
+			restartCount = pod.Status.ContainerStatuses[0].RestartCount
+		}
+
+		startTime := ""
+		if pod.Status.StartTime != nil {
+			startTime = pod.Status.StartTime.Format(time.RFC3339)
 		}
 
 		result = append(result, metrics.PodMetrics{
@@ -52,7 +83,7 @@ func (c *KubernetesClient) GetPods(namespace string) ([]metrics.PodMetrics, erro
 			Namespace:          pod.Namespace,
 			NodeName:           pod.Spec.NodeName,
 			Status:             string(pod.Status.Phase),
-			StartTime:          pod.Status.StartTime.Format(time.RFC3339),
+			StartTime:          startTime,
 			CPUUsage:           cpuUsage,
 			CPUUsagePercent:    cpuUsagePercent,
 			CPUUsageLimit:      cpuLimit,
@@ -61,7 +92,7 @@ func (c *KubernetesClient) GetPods(namespace string) ([]metrics.PodMetrics, erro
 			MemoryUsagePercent: memoryUsagePercent,
 			MemoryUsageLimit:   memoryLimit,
 			MemoryUsageRequest: memoryRequest,
-			RestartCount:       pod.Status.ContainerStatuses[0].RestartCount,
+			RestartCount:       restartCount,
 		})
 	}
 	return result, nil

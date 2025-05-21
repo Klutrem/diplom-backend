@@ -14,14 +14,17 @@ import (
 )
 
 func (c *KubernetesClient) GetNodes() ([]metrics.NodeMetrics, error) {
-	nodeMetrics, err := c.getNodeMetrics()
+	nodes, err := c.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := c.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	// Try to get metrics, but don't fail if we can't
+	nodeMetrics, err := c.getNodeMetrics()
 	if err != nil {
-		return nil, err
+		c.logger.Errorf("Failed to get node metrics: %v", err)
+		// Return nodes without metrics
+		return NodeFromMetrics([]v1beta1.NodeMetrics{}, nodes.Items), nil
 	}
 
 	return NodeFromMetrics(nodeMetrics, nodes.Items), nil
@@ -79,31 +82,41 @@ func (c *KubernetesClient) getNodeMetrics() ([]v1beta1.NodeMetrics, error) {
 }
 
 func NodeFromMetrics(nodeMetrics []v1beta1.NodeMetrics, nodes []corev1.Node) []metrics.NodeMetrics {
-	result := make([]metrics.NodeMetrics, 0, len(nodeMetrics))
-	for _, nodeMetric := range nodeMetrics {
-		var node *corev1.Node
-		for _, n := range nodes {
-			if n.Name == nodeMetric.Name {
-				node = &n
-				break
+	result := make([]metrics.NodeMetrics, 0, len(nodes))
+
+	// Create a map for quick lookup of metrics by node name
+	metricsMap := make(map[string]v1beta1.NodeMetrics)
+	for _, metric := range nodeMetrics {
+		metricsMap[metric.Name] = metric
+	}
+
+	for _, node := range nodes {
+		nodeMetric, hasMetrics := metricsMap[node.Name]
+
+		// Initialize with zero values
+		cpuUsage := int64(0)
+		cpuCapacity := node.Status.Capacity.Cpu().MilliValue()
+		cpuUsagePercent := 0.0
+		memoryUsage := int64(0)
+		memoryCapacity := node.Status.Capacity.Memory().Value() / 1024 / 1024
+		memoryUsagePercent := 0.0
+
+		// If we have metrics, use them
+		if hasMetrics {
+			cpuUsage = nodeMetric.Usage.Cpu().MilliValue()
+			if cpuCapacity > 0 {
+				cpuUsagePercent = float64(cpuUsage) / float64(cpuCapacity) * 100
+			}
+			memoryUsage = nodeMetric.Usage.Memory().Value() / 1024 / 1024
+			if memoryCapacity > 0 {
+				memoryUsagePercent = float64(memoryUsage) / float64(memoryCapacity) * 100
 			}
 		}
-		if node == nil {
-			continue
-		}
 
-		cpuUsage := nodeMetric.Usage.Cpu().MilliValue() // mCores
-		cpuCapacity := node.Status.Capacity.Cpu().MilliValue()
-		cpuUsagePercent := float64(cpuUsage) / float64(cpuCapacity) * 100
-
-		memoryUsage := nodeMetric.Usage.Memory().Value() / 1024 / 1024 // MiB
-		memoryCapacity := node.Status.Capacity.Memory().Value() / 1024 / 1024
-		memoryUsagePercent := float64(memoryUsage) / float64(memoryCapacity) * 100
-
-		roles := getNodeRoles(node)
+		roles := getNodeRoles(&node)
 
 		result = append(result, metrics.NodeMetrics{
-			NodeName:              nodeMetric.Name,
+			NodeName:              node.Name,
 			CPUUsage:              fmt.Sprintf("%dm", cpuUsage),
 			CpuCapacity:           fmt.Sprintf("%dm", cpuCapacity),
 			CpuUsagePercentage:    fmt.Sprintf("%f", cpuUsagePercent),
@@ -111,7 +124,7 @@ func NodeFromMetrics(nodeMetrics []v1beta1.NodeMetrics, nodes []corev1.Node) []m
 			MemoryCapacity:        fmt.Sprintf("%dMi", memoryCapacity),
 			MemoryUsagePercentage: fmt.Sprintf("%f", memoryUsagePercent),
 			Roles:                 roles,
-			Status:                getNodeStatus(node),
+			Status:                getNodeStatus(&node),
 		})
 	}
 	return result
