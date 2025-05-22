@@ -3,6 +3,7 @@ package cmd
 import (
 	"main/internal/application/api"
 	"main/internal/config"
+	"main/internal/domain/alerts"
 	"main/internal/domain/events"
 	"main/internal/infrastructure/database"
 	"main/internal/infrastructure/kubernetes"
@@ -22,4 +23,5 @@ var CommonModules = fx.Options(
 	api.Module,
 	events.Module,
 	database.Module,
+	alerts.Module,
 )

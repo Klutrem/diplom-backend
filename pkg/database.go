@@ -19,6 +19,7 @@ type Database interface {
 	Begin() (*sql.Tx, error)
 	Select(dest interface{}, query string, args ...interface{}) error
 	MustExec(query string, args ...interface{}) sql.Result
+	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	NamedExec(query string, arg interface{}) (sql.Result, error)
 	Get(dest interface{}, query string, args ...interface{}) error

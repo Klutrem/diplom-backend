@@ -6,7 +6,7 @@ import (
 	"go.uber.org/fx"
 )
 
-func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController, namespaceController *NamespaceController, podController *PodController, eventController *EventController) {
+func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController, namespaceController *NamespaceController, podController *PodController, eventController *EventController, telegramAlertController *TelegramAlertController) {
 	nodeGroup := handler.Group("/api/nodes")
 	{
 		nodeGroup.GET("", nodeController.GetNodes)
@@ -42,4 +42,5 @@ var Module = fx.Module("api",
 	fx.Provide(NewPodController),
 	fx.Invoke(SetupRoutes),
 	fx.Provide(NewEventController),
+	fx.Provide(NewTelegramAlertController),
 )

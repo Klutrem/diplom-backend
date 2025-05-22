@@ -17,3 +17,14 @@ CREATE TABLE IF NOT EXISTS watched_namespaces (
     namespace VARCHAR(255) PRIMARY KEY,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS telegram_alerts (
+    id SERIAL PRIMARY KEY,
+    bot_token VARCHAR(255) NOT NULL,
+    chat_id VARCHAR(255) NOT NULL,
+    thread_id INTEGER,
+    alert_type VARCHAR(50) NOT NULL CHECK (alert_type IN ('all', 'normal', 'warning')),
+    namespace VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(namespace, chat_id, thread_id)
+);
