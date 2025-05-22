@@ -1,0 +1,38 @@
+@startuml Database Schema
+
+!define table(x) class x << (T,#FFAAAA) >>
+!define primary_key(x) <u>x</u>
+!define foreign_key(x) #x#
+
+table(events) {
+    primary_key(id): VARCHAR(255)
+    namespace: VARCHAR(255)
+    name: VARCHAR(255)
+    reason: VARCHAR(255)
+    message: TEXT
+    type: VARCHAR(50)
+    involved_object: VARCHAR(255)
+    first_timestamp: TIMESTAMP
+    last_timestamp: TIMESTAMP
+    count: INTEGER
+}
+
+table(watched_namespaces) {
+    primary_key(namespace): VARCHAR(255)
+    created_at: TIMESTAMP
+}
+
+table(telegram_alerts) {
+    primary_key(id): SERIAL
+    bot_token: VARCHAR(255)
+    chat_id: VARCHAR(255)
+    thread_id: INTEGER
+    alert_type: VARCHAR(50)
+    namespace: VARCHAR(255)
+    created_at: TIMESTAMP
+}
+
+events }|--|| watched_namespaces : namespace
+telegram_alerts }|--|| watched_namespaces : namespace
+
+@enduml 

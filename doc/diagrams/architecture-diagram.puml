@@ -1,0 +1,73 @@
+@startuml
+!define RECTANGLE class
+!include <logos/kubernetes>
+!include <cloudinsight/postgresql>
+!include <logos/nextjs>
+!include <logos/go>
+!include <logos/prometheus>
+!include <logos/telegram>
+
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam handwritten false
+
+rectangle "Kubernetes Cluster" {
+    rectangle "Frontend" as frontend {
+        ["<$nextjs>\nNext.js Application"]
+    }
+
+    rectangle "Backend" as backend {
+        ["<$go>\nGo Application"]
+        note right
+          Kubernetes Client:
+          - In-cluster config
+          - Kubeconfig
+        end note
+    }
+
+    rectangle "Database" as db {
+        ["<$postgresql>\nPostgreSQL"]
+    }
+
+    rectangle "Monitoring" as monitoring {
+        ["<$prometheus>\nPrometheus"]
+        [Prometheus Node Exporter]
+    }
+
+    rectangle "<$kubernetes>\nKubernetes Components" as k8s {
+        [API Server] as apiserver
+        [etcd]
+        [Controller Manager]
+        [Scheduler]
+    }
+}
+
+' Внешние компоненты
+cloud "Telegram" as telegram {
+    ["<$telegram>\nBot API"]
+}
+
+' Взаимодействия
+frontend --> backend : HTTP/HTTPS
+backend --> db : SQL
+backend --> apiserver : Kubernetes API
+backend --> telegram : Bot API
+Prometheus --> backend : Метрики
+Prometheus --> k8s : Метрики
+
+' Примечания
+note right of backend
+  Обрабатывает:
+  - События Kubernetes
+  - Управление алертами
+  - Обработка событий
+end note
+
+note right of monitoring
+  Собирает метрики:
+  - Сервисы бэкенда
+  - Компоненты Kubernetes
+  - Метрики узлов
+end note
+@enduml
