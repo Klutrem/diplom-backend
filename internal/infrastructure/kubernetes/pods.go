@@ -133,13 +133,13 @@ type PodHistoricalMetrics struct {
 }
 
 func (c *KubernetesClient) GetPodHistoricalMetrics(namespace, podName string, start, end time.Time, step time.Duration) (*PodHistoricalMetrics, error) {
-	cpuQuery := fmt.Sprintf(`sum(rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s"}[5m])) * 1000`, namespace, podName)
+	cpuQuery := fmt.Sprintf(`sum(rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s"}[5m]))`, namespace, podName)
 	cpuValue, err := c.prometheusClient.GetMetricHistory(cpuQuery, start, end, step)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU usage history: %v", err)
 	}
 
-	memoryQuery := fmt.Sprintf(`container_memory_working_set_bytes{namespace="%s", pod="%s"}`, namespace, podName)
+	memoryQuery := fmt.Sprintf(`sum(container_memory_working_set_bytes{namespace="%s", pod="%s"})`, namespace, podName)
 	memoryValue, err := c.prometheusClient.GetMetricHistory(memoryQuery, start, end, step)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memory usage history: %v", err)
