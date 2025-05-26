@@ -10,7 +10,7 @@ func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController,
 	nodeGroup := handler.Group("/api/nodes")
 	{
 		nodeGroup.GET("", nodeController.GetNodes)
-
+		nodeGroup.GET("/metrics/:node", nodeController.GetNodeMetrics)
 	}
 
 	namespaceGroup := handler.Group("/api/namespaces")
@@ -21,6 +21,7 @@ func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController,
 	podGroup := handler.Group("/api/pods")
 	{
 		podGroup.GET("", podController.GetPods)
+		podGroup.GET("/metrics/:namespace/:pod", podController.GetPodMetrics)
 	}
 
 	eventsGroup := handler.Group("/api/events")

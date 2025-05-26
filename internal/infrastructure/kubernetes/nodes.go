@@ -149,3 +149,51 @@ func getNodeStatus(node *corev1.Node) string {
 	}
 	return "NotReady"
 }
+
+type NodeHistoricalMetrics struct {
+	CPUUsage    []MetricPoint `json:"cpu_usage"`
+	MemoryUsage []MetricPoint `json:"memory_usage"`
+}
+
+func (c *KubernetesClient) GetNodeHistoricalMetrics(nodeName string, start, end time.Time, step time.Duration) (*NodeHistoricalMetrics, error) {
+	cpuQuery := fmt.Sprintf(`sum(rate(node_cpu_seconds_total{mode="user",node="%s"}[5m])) * 1000`, nodeName)
+	cpuValue, err := c.prometheusClient.GetMetricHistory(cpuQuery, start, end, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CPU usage history: %v", err)
+	}
+
+	memoryQuery := fmt.Sprintf(`node_memory_MemTotal_bytes{node="%s"} - node_memory_MemAvailable_bytes{node="%s"}`, nodeName, nodeName)
+	memoryValue, err := c.prometheusClient.GetMetricHistory(memoryQuery, start, end, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get memory usage history: %v", err)
+	}
+
+	metrics := &NodeHistoricalMetrics{
+		CPUUsage:    make([]MetricPoint, 0),
+		MemoryUsage: make([]MetricPoint, 0),
+	}
+
+	if matrix, ok := cpuValue.(model.Matrix); ok {
+		for _, series := range matrix {
+			for _, point := range series.Values {
+				metrics.CPUUsage = append(metrics.CPUUsage, MetricPoint{
+					Timestamp: point.Timestamp.Time(),
+					Value:     float64(point.Value),
+				})
+			}
+		}
+	}
+
+	if matrix, ok := memoryValue.(model.Matrix); ok {
+		for _, series := range matrix {
+			for _, point := range series.Values {
+				metrics.MemoryUsage = append(metrics.MemoryUsage, MetricPoint{
+					Timestamp: point.Timestamp.Time(),
+					Value:     float64(point.Value),
+				})
+			}
+		}
+	}
+
+	return metrics, nil
+}

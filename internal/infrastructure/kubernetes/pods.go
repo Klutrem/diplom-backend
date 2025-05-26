@@ -121,3 +121,56 @@ func (c *KubernetesClient) getPodMemoryUsage(namespace, podName string) (int64, 
 	}
 	return 0, fmt.Errorf("no memory usage data for pod %s", podName)
 }
+
+type MetricPoint struct {
+	Timestamp time.Time `json:"timestamp"`
+	Value     float64   `json:"value"`
+}
+
+type PodHistoricalMetrics struct {
+	CPUUsage    []MetricPoint `json:"cpu_usage"`
+	MemoryUsage []MetricPoint `json:"memory_usage"`
+}
+
+func (c *KubernetesClient) GetPodHistoricalMetrics(namespace, podName string, start, end time.Time, step time.Duration) (*PodHistoricalMetrics, error) {
+	cpuQuery := fmt.Sprintf(`sum(rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s"}[5m])) * 1000`, namespace, podName)
+	cpuValue, err := c.prometheusClient.GetMetricHistory(cpuQuery, start, end, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CPU usage history: %v", err)
+	}
+
+	memoryQuery := fmt.Sprintf(`container_memory_working_set_bytes{namespace="%s", pod="%s"}`, namespace, podName)
+	memoryValue, err := c.prometheusClient.GetMetricHistory(memoryQuery, start, end, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get memory usage history: %v", err)
+	}
+
+	metrics := &PodHistoricalMetrics{
+		CPUUsage:    make([]MetricPoint, 0),
+		MemoryUsage: make([]MetricPoint, 0),
+	}
+
+	if matrix, ok := cpuValue.(model.Matrix); ok {
+		for _, series := range matrix {
+			for _, point := range series.Values {
+				metrics.CPUUsage = append(metrics.CPUUsage, MetricPoint{
+					Timestamp: point.Timestamp.Time(),
+					Value:     float64(point.Value),
+				})
+			}
+		}
+	}
+
+	if matrix, ok := memoryValue.(model.Matrix); ok {
+		for _, series := range matrix {
+			for _, point := range series.Values {
+				metrics.MemoryUsage = append(metrics.MemoryUsage, MetricPoint{
+					Timestamp: point.Timestamp.Time(),
+					Value:     float64(point.Value),
+				})
+			}
+		}
+	}
+
+	return metrics, nil
+}

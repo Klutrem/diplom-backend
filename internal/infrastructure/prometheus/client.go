@@ -47,3 +47,18 @@ func (client PrometheusClient) GetMetricValue(query string) (model.Value, error)
 	}
 	return value, nil
 }
+
+func (client PrometheusClient) GetMetricHistory(query string, start, end time.Time, step time.Duration) (model.Value, error) {
+	value, warnings, err := client.api.QueryRange(context.Background(), query, prometheusV1.Range{
+		Start: start,
+		End:   end,
+		Step:  step,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(warnings) > 0 {
+		client.logger.Warnf("Prometheus query warnings: %v", warnings)
+	}
+	return value, nil
+}
