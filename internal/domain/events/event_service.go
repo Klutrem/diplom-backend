@@ -39,7 +39,6 @@ func NewEventService(logger pkg.Logger, k8sClient EventsKubernetesClient, repo E
 		watchedNamespaces:   make(map[string]context.CancelFunc),
 	}
 
-	// Start watching all namespaces from the database
 	namespaces, err := namespaceRepo.GetAllNamespaces()
 	if err != nil {
 		logger.Errorf("Failed to get watched namespaces: %v", err)
@@ -57,7 +56,6 @@ func NewEventService(logger pkg.Logger, k8sClient EventsKubernetesClient, repo E
 func (s *EventService) StartWatching(ctx context.Context, namespace string) error {
 	s.logger.Info("Starting event watching in namespace", namespace)
 
-	// Create a new context for this namespace watcher
 	watcherCtx, cancel := context.WithCancel(ctx)
 	s.watchedNamespaces[namespace] = cancel
 

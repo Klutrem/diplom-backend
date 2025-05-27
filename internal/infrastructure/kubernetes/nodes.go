@@ -156,7 +156,7 @@ type NodeHistoricalMetrics struct {
 }
 
 func (c *KubernetesClient) GetNodeHistoricalMetrics(nodeName string, start, end time.Time, step time.Duration) (*NodeHistoricalMetrics, error) {
-	cpuQuery := fmt.Sprintf(`sum(rate(node_cpu_seconds_total{mode="user",node="%s"}[5m])) * 1000`, nodeName)
+	cpuQuery := fmt.Sprintf(`sum(rate(node_cpu_seconds_total{mode="user",node="%s"}[5m]))`, nodeName)
 	cpuValue, err := c.prometheusClient.GetMetricHistory(cpuQuery, start, end, step)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU usage history: %v", err)
