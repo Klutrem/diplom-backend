@@ -35,6 +35,14 @@ func SetupRoutes(handler handler.RequestHandler, nodeController *NodeController,
 		watchedNamespacesGroup.POST("", eventController.AddWatchedNamespace)
 		watchedNamespacesGroup.DELETE("/:namespace", eventController.RemoveWatchedNamespace)
 	}
+
+	alertsGroup := handler.Group("/api/alerts")
+	{
+		alertsGroup.POST("", telegramAlertController.CreateAlert)
+		alertsGroup.GET("/namespace/:namespace", telegramAlertController.GetAlertsByNamespace)
+		alertsGroup.DELETE("/:id", telegramAlertController.DeleteAlert)
+		alertsGroup.PUT("/:id", telegramAlertController.UpdateAlert)
+	}
 }
 
 var Module = fx.Module("api",
