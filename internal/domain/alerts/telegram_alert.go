@@ -6,8 +6,8 @@ type AlertType string
 
 const (
 	AlertTypeAll     AlertType = "all"
-	AlertTypeNormal  AlertType = "Normal"
-	AlertTypeWarning AlertType = "Warning"
+	AlertTypeNormal  AlertType = "normal"
+	AlertTypeWarning AlertType = "warning"
 )
 
 type TelegramAlert struct {
